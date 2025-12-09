@@ -24,6 +24,7 @@ const int STEPS_PER_REV        = MOTOR_STEPS_PER_REV * MICROSTEPS;
 // 軸の直径: 21 cm → 0.21 m
 const float SHAFT_DIAMETER_M      = 0.21f;
 const float SHAFT_CIRCUMFERENCE_M = PI * SHAFT_DIAMETER_M;
+const float STEPSPERMETER = (MOTOR_STEPS_PER_REV * MICROSTEPS) / (float) SHAFT_CIRCUMFERENCE_M;
 
 // リミットスイッチ間の距離 [m]
 const float AXIS_LENGTH_M = 2.0f;
@@ -44,34 +45,38 @@ void stepOneRaw()
     delayMicroseconds(STEP_PULSE_US);
 }
 
-// dirPositive=true で +方向 (2m 側), false で -方向 (0m 側)
+const int DIR = 8;
+const int STEP = 9;
+const int SLEEP = 13;
+const int MS1 = 10;
+const int MS2 = 11;
+const int MS3 = 12;
+float rpm = 120;
+A4988 stepper(MOTOR_STEPS_PER_REV, DIR, STEP, SLEEP, MS1, MS2, MS3);
+
 void moveSteps(bool dirPositive, long steps, bool useLimit)
 {
 #if 0
     digitalWrite(DIR_PIN, dirPositive ? HIGH : LOW);
 #else
-    current_angle = current_pos_m * (360 / 0.21 * 3.14159265);
-    stepper.rotate(current_angle)
+    float current_angle = current_pos_m * (360 / 0.21 * 3.14159265);
+    stepper.rotate(current_angle);
 
-    for (long i = 0; i < steps; ++i)
+    for(long i = 0; i < steps; ++i)
     {
-        if (useLimit)
+        if(useLimit)
         {
-            // +方向のときは +側リミット、-方向のときは -側リミットだけを見る
-            if (dirPositive && digitalRead(LIMIT_MAX_PIN) == LOW)
+            if(dirPositive && digitalRead(LIMIT_MAX_PIN) == LOW)
             {
-                // +側リミットに到達
                 current_pos_m = AXIS_LENGTH_M;
                 break;
             }
-            if (!dirPositive && digitalRead(LIMIT_MIN_PIN) == LOW)
+            if(!dirPositive && digitalRead(LIMIT_MIN_PIN) == LOW)
             {
-                // -側リミットに到達
                 current_pos_m = 0.0f;
                 break;
             }
         }
-
         stepOneRaw();
     }
 #endif
@@ -87,8 +92,7 @@ void moveToPosition(float target_m)
     float delta = target_m - current_pos_m;
     if (fabs(delta) < 1e-6) return; // ほぼ同じ位置なら何もしない
 
-    const float stepsPerMeter = (float)STEPS_PER_REV / SHAFT_CIRCUMFERENCE_M;
-    long steps = lround(fabs(delta) * stepsPerMeter);
+    long steps = lround(fabs(delta) * STEPSPERMETER);
 
     bool dirPositive = (delta > 0.0f);
 
@@ -106,16 +110,11 @@ void moveToPosition(float target_m)
     Serial.println(current_pos_m, 4);
 }
 
-const int MOTOR_STEPS = 200;
-const int DIR = 8;
-const int STEP = 9;
-float rpm = 10;
-int microsteps = 30;
-A4988 stepper(MOTOR_STEPS, DIR, STEP);
-
 void setup()
 {
     Serial.begin(115200);   // デバッグ出力
+    Serial.println("Starting Programs");
+    Serial.println("Setup Start");
     Serial1.begin(115200);  // UART から位置[m]を受け取る
 
     pinMode(DIR_PIN, OUTPUT);
@@ -132,20 +131,27 @@ void setup()
     Serial.println("ready. send target position [m] to Serial1, e.g. \"0.5\\n\"");
     Serial.println("※ 起動時は 0[m] 側のリミット近くに置いておく想定");
     // 必要ならここで「原点出し」(リミットに当たるまでゆっくり動かす)を足してもOK
-    stepper.begin(rpm, microsteps);
+    stepper.begin(rpm);
+    stepper.enable();
+    Serial.println("Setup Stop");
 }
 
+int count_w = 0;
+int count_l = 0;
 void loop()
 {
     // UART(Serial1) から 1 行読み込んで float に変換
     while (Serial1.available())
     {
+        Serial.print("While");
+        Serial.println(count_w++, 4);
         char c = Serial1.read();
 
         if (c == '\r') continue; // 無視
 
         if (c == '\n')
         {
+            Serial.println("LF");
             if (rxLine.length() > 0)
             {
                 float target = rxLine.toFloat();  // 単位: m
@@ -168,4 +174,7 @@ void loop()
         current_pos_m = 0.0f;
     else if (digitalRead(LIMIT_MAX_PIN) == LOW)
         current_pos_m = AXIS_LENGTH_M;
+    // Serial.print("Loop");
+    // Serial.println(count_l++, 4);
 }
+
