@@ -1,180 +1,102 @@
+/*
+ * Microstepping demo
+ *
+ * This requires that microstep control pins be connected in addition to STEP,DIR
+ *
+ * Copyright (C)2015 Laurentiu Badea
+ *
+ * This file may be redistributed under the terms of the MIT license.
+ * A copy of this license has been included with this distribution in the file LICENSE.
+ */
+#include <Arduino.h>
+
+// Motor steps per revolution. Most steppers are 200 steps or 1.8 degrees/step
+#define MOTOR_STEPS 200
+#define RPM 120
+
+#define DIR 8
+#define STEP 9
+#define SLEEP 13 // optional (just delete SLEEP from everywhere if not used)
+
+/*
+ * Choose one of the sections below that match your board
+ */
+
+// #include "DRV8834.h"
+// #define M0 10
+// #define M1 11
+// DRV8834 stepper(MOTOR_STEPS, DIR, STEP, SLEEP, M0, M1);
+
 #include "A4988.h"
+#define MS1 10
+#define MS2 11
+#define MS3 12
+A4988 stepper(MOTOR_STEPS, DIR, STEP, SLEEP, MS1, MS2, MS3);
 
-// リミットスイッチ付き 1軸ステージ
-// UART(Serial1) から「目標位置 [m]」を受け取り、そこに移動する
+// #include "DRV8825.h"
+// #define MODE0 10
+// #define MODE1 11
+// #define MODE2 12
+// DRV8825 stepper(MOTOR_STEPS, DIR, STEP, SLEEP, MODE0, MODE1, MODE2);
 
-// ----- A4988 の DIR/STEP ピン -----
-const int DIR_PIN  = 8;
-const int STEP_PIN = 9;
-// 必要なら enable ピンも
-const int ENABLE_PIN = 7;   // 使っていなければ消してOK
+// #include "DRV8880.h"
+// #define M0 10
+// #define M1 11
+// #define TRQ0 6
+// #define TRQ1 7
+// DRV8880 stepper(MOTOR_STEPS, DIR, STEP, SLEEP, M0, M1, TRQ0, TRQ1);
 
-// ----- リミットスイッチ -----
-// プルアップ入力で、押されたとき LOW になる前提
-const int LIMIT_MIN_PIN = 2;  // 0[m] 側
-const int LIMIT_MAX_PIN = 3;  // 2[m] 側
+// #include "BasicStepperDriver.h" // generic
+// BasicStepperDriver stepper(MOTOR_STEPS, DIR, STEP);
 
-// ----- モータとメカの条件 -----
-// モータ: 1回転 200ステップ
-const int MOTOR_STEPS_PER_REV = 200;
-// ドライバのマイクロステップ設定 (基板のジャンパに合わせる)
-const int MICROSTEPS           = 8;
-const int STEPS_PER_REV        = MOTOR_STEPS_PER_REV * MICROSTEPS;
-
-// 軸の直径: 21 cm → 0.21 m
-const float SHAFT_DIAMETER_M      = 0.21f;
-const float SHAFT_CIRCUMFERENCE_M = PI * SHAFT_DIAMETER_M;
-const float STEPSPERMETER = (MOTOR_STEPS_PER_REV * MICROSTEPS) / (float) SHAFT_CIRCUMFERENCE_M;
-
-// リミットスイッチ間の距離 [m]
-const float AXIS_LENGTH_M = 2.0f;
-
-// ステップパルスの長さ (速度調整用)
-const int STEP_PULSE_US = 800; // 遅ければ大きく, 速くしたければ小さく
-
-// ----- 内部状態 -----
-float current_pos_m = 0.0f; // 起動時に 0[m] 付近に置いておく前提
-String rxLine;
-
-// STEP パルス 1発
-void stepOneRaw()
-{
-    digitalWrite(STEP_PIN, HIGH);
-    delayMicroseconds(STEP_PULSE_US);
-    digitalWrite(STEP_PIN, LOW);
-    delayMicroseconds(STEP_PULSE_US);
-}
-
-const int DIR = 8;
-const int STEP = 9;
-const int SLEEP = 13;
-const int MS1 = 10;
-const int MS2 = 11;
-const int MS3 = 12;
-float rpm = 120;
-A4988 stepper(MOTOR_STEPS_PER_REV, DIR, STEP, SLEEP, MS1, MS2, MS3);
-
-void moveSteps(bool dirPositive, long steps, bool useLimit)
-{
-#if 0
-    digitalWrite(DIR_PIN, dirPositive ? HIGH : LOW);
-#else
-    float current_angle = current_pos_m * (360 / 0.21 * 3.14159265);
-    stepper.rotate(current_angle);
-
-    for(long i = 0; i < steps; ++i)
-    {
-        if(useLimit)
-        {
-            if(dirPositive && digitalRead(LIMIT_MAX_PIN) == LOW)
-            {
-                current_pos_m = AXIS_LENGTH_M;
-                break;
-            }
-            if(!dirPositive && digitalRead(LIMIT_MIN_PIN) == LOW)
-            {
-                current_pos_m = 0.0f;
-                break;
-            }
-        }
-        stepOneRaw();
-    }
-#endif
-}
-
-// 目標位置[m]へ移動
-void moveToPosition(float target_m)
-{
-    // 範囲制限
-    if (target_m < 0.0f)           target_m = 0.0f;
-    if (target_m > AXIS_LENGTH_M)  target_m = AXIS_LENGTH_M;
-
-    float delta = target_m - current_pos_m;
-    if (fabs(delta) < 1e-6) return; // ほぼ同じ位置なら何もしない
-
-    long steps = lround(fabs(delta) * STEPSPERMETER);
-
-    bool dirPositive = (delta > 0.0f);
-
-    moveSteps(dirPositive, steps, true);
-
-    // 実際にリミットに当たっていれば、その座標にスナップ
-    if (digitalRead(LIMIT_MIN_PIN) == LOW)
-        current_pos_m = 0.0f;
-    else if (digitalRead(LIMIT_MAX_PIN) == LOW)
-        current_pos_m = AXIS_LENGTH_M;
-    else
-        current_pos_m = target_m;
-
-    Serial.print("current_pos_m = ");
-    Serial.println(current_pos_m, 4);
-}
-
-void setup()
-{
-    Serial.begin(115200);   // デバッグ出力
-    Serial.println("Starting Programs");
-    Serial.println("Setup Start");
-    Serial1.begin(115200);  // UART から位置[m]を受け取る
-
-    pinMode(DIR_PIN, OUTPUT);
-    pinMode(STEP_PIN, OUTPUT);
-    pinMode(ENABLE_PIN, OUTPUT);
-    digitalWrite(ENABLE_PIN, LOW); // A4988 有効 (基板によっては HIGH が有効のこともある)
-
-    pinMode(LIMIT_MIN_PIN, INPUT_PULLUP);
-    pinMode(LIMIT_MAX_PIN, INPUT_PULLUP);
-
-    digitalWrite(DIR_PIN, LOW);
-    digitalWrite(STEP_PIN, LOW);
-
-    Serial.println("ready. send target position [m] to Serial1, e.g. \"0.5\\n\"");
-    Serial.println("※ 起動時は 0[m] 側のリミット近くに置いておく想定");
-    // 必要ならここで「原点出し」(リミットに当たるまでゆっくり動かす)を足してもOK
-    stepper.begin(rpm);
+void setup() {
+    /*
+     * Set target motor RPM.
+     */
+    stepper.begin(RPM);
+    // if using enable/disable on ENABLE pin (active LOW) instead of SLEEP uncomment next line
+    // stepper.setEnableActiveState(LOW);
     stepper.enable();
-    Serial.println("Setup Stop");
+
+    // set current level (for DRV8880 only).
+    // Valid percent values are 25, 50, 75 or 100.
+    // stepper.setCurrent(100);
 }
 
-int count_w = 0;
-int count_l = 0;
-void loop()
-{
-    // UART(Serial1) から 1 行読み込んで float に変換
-    while (Serial1.available())
-    {
-        Serial.print("While");
-        Serial.println(count_w++, 4);
-        char c = Serial1.read();
+void loop() {
+    delay(1000);
 
-        if (c == '\r') continue; // 無視
+    /*
+     * Moving motor in full step mode is simple:
+     */
+    stepper.setMicrostep(1);  // Set microstep mode to 1:1
 
-        if (c == '\n')
-        {
-            Serial.println("LF");
-            if (rxLine.length() > 0)
-            {
-                float target = rxLine.toFloat();  // 単位: m
-                Serial.print("target(m) = ");
-                Serial.println(target, 4);
+    // One complete revolution is 360°
+    stepper.rotate(360);     // forward revolution
+    stepper.rotate(-360);    // reverse revolution
 
-                moveToPosition(target);
-                rxLine = "";
-            }
-        }
-        else
-        {
-            // 数字・小数点・符号を素直に蓄積 (簡単のため何でも受ける)
-            rxLine += c;
-        }
-    }
+    // One complete revolution is also MOTOR_STEPS steps in full step mode
+    stepper.move(MOTOR_STEPS);    // forward revolution
+    stepper.move(-MOTOR_STEPS);   // reverse revolution
 
-    // 安全のため、常にリミット状態を見て座標を補正
-    if (digitalRead(LIMIT_MIN_PIN) == LOW)
-        current_pos_m = 0.0f;
-    else if (digitalRead(LIMIT_MAX_PIN) == LOW)
-        current_pos_m = AXIS_LENGTH_M;
-    // Serial.print("Loop");
-    // Serial.println(count_l++, 4);
+    /*
+     * Microstepping mode: 1, 2, 4, 8, 16 or 32 (where supported by driver)
+     * Mode 1 is full speed.
+     * Mode 32 is 32 microsteps per step.
+     * The motor should rotate just as fast (at the set RPM),
+     * but movement precision is increased, which may become visually apparent at lower RPMs.
+     */
+    stepper.setMicrostep(8);   // Set microstep mode to 1:8
+
+    // In 1:8 microstepping mode, one revolution takes 8 times as many microsteps
+    stepper.move(8 * MOTOR_STEPS);    // forward revolution
+    stepper.move(-8 * MOTOR_STEPS);   // reverse revolution
+
+    // One complete revolution is still 360° regardless of microstepping mode
+    // rotate() is easier to use than move() when no need to land on precise microstep position
+    stepper.rotate(360);
+    stepper.rotate(-360);
+
+    delay(5000);
 }
 
