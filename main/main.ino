@@ -79,9 +79,9 @@ void setPos(float p)
 void oneStep()
 {
     digitalWrite(STEP_PIN, HIGH);
-    delayMicroseconds(dt_);
+    delayMicroseconds(2000);
     digitalWrite(STEP_PIN, LOW);
-    delayMicroseconds(dt_);
+    delayMicroseconds(2000);
 }
 
 void setDir(int dir)
