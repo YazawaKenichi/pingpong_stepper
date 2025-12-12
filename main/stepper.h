@@ -29,7 +29,7 @@ void executeSteps(unsigned int);
 short int checkLimit();
 bool getEnable();
 void setEnable(bool);
-int positionCorrection();
+void positionCorrection();
 void moveToPosition(float);
 
 #endif

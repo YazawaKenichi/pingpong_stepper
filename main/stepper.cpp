@@ -99,10 +99,18 @@ short int checkLimit()
     return 0;
 }
 
-int positionCorrection()
+void positionCorrection()
 {
     // リミットスイッチに触れていたら方向に応じて補正
-    return 0;
+    short int limit_ = checkLimit();
+    if(limit_ < 0)
+    {
+        setPos(0);
+    }
+    if(0 < limit_)
+    {
+        setPos(LENGTH);
+    }
 }
 
 bool getEnable()
@@ -123,12 +131,15 @@ void moveToPosition(float target)
     if (target > LENGTH) target = LENGTH;
 
     float diff = target - getPos();
-    int dir = (diff >= 0) ? DIR_RIGHT : DIR_LEFT;
-    unsigned long int step = lround(fabs(M2STEP(diff)));
-    step = 1;
-    setDir(dir);
-    executeSteps(step);
-    int unit = (diff >= 0) ? 1 : -1;
-    setPos(getPos() + (unit * STEP2M(step)));
+    if(M2STEP(diff) <= 1)
+    {
+        int dir = (diff >= 0) ? DIR_RIGHT : DIR_LEFT;
+        unsigned long int step = lround(fabs(M2STEP(diff)));
+        step = 1;
+        setDir(dir);
+        executeSteps(step);
+        int unit = (diff >= 0) ? 1 : -1;
+        setPos(getPos() + (unit * STEP2M(step)));
+    }
 }
 
