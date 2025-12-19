@@ -1,9 +1,11 @@
 #include <Arduino.h>
 #include <math.h>
 #include "stepper.h"
+#include "led.h"
 
 float pos_;
 bool enable_;
+bool goal_;
 // const float dt_ = (1e6f / (float) M2STEP(SPEED)) / 2;
 const float dt_ = 2000;
 
@@ -121,8 +123,22 @@ bool getEnable()
 void setEnable(bool tf)
 {
     enable_ = tf;
-    // digitalWrite(ENABLE_PIN, tf ? LOW : HIGH);
+#if ALWAYS_ENABLE
     digitalWrite(ENABLE_PIN, LOW);
+#else
+    digitalWrite(ENABLE_PIN, tf ? HIGH : LOW);
+#endif
+}
+
+bool getGoal()
+{
+    return goal_;
+}
+
+void setGoal(bool tf)
+{
+    goal_ = tf;
+    setLed(tf);
 }
 
 void moveToPosition(float target)
@@ -131,15 +147,25 @@ void moveToPosition(float target)
     if (target > LENGTH) target = LENGTH;
 
     float diff = target - getPos();
-    if(M2STEP(diff) <= 1)
+    if(fabs(diff) < STEP2M(1))
     {
+        setEnable(true);
         int dir = (diff >= 0) ? DIR_RIGHT : DIR_LEFT;
-        unsigned long int step = lround(fabs(M2STEP(diff)));
+#if STEP_ON_LOOP
         step = 1;
+#else
+        unsigned long int step = lround(fabs(M2STEP(diff)));
+#endif
         setDir(dir);
         executeSteps(step);
         int unit = (diff >= 0) ? 1 : -1;
         setPos(getPos() + (unit * STEP2M(step)));
+        setGoal(false);
+    }
+    else
+    {
+        setEnable(false);
+        setGoal(true);
     }
 }
 

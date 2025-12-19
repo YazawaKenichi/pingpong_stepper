@@ -1,4 +1,5 @@
 #include "stepper.h"
+#include "led.h"
 
 float target;   //! [ m ]
 String rxLine;
@@ -9,6 +10,7 @@ void setup()
     Serial.println("Starting Programs");
 
     Serial1.begin(115200);
+    initLed();
     initStepper();
     target = 0;
 
@@ -17,15 +19,15 @@ void setup()
 
 void loop()
 {
-    while (Serial1.available())
+    while(Serial1.available())
     {
         char c = Serial1.read();
 
-        if (c == '\r') continue;
+        if(c == '\r') continue;
 
-        if (c == '\n')
+        if(c == '\n')
         {
-            if (rxLine.length() > 0)
+            if(rxLine.length() > 0)
             {
                 target = rxLine.toFloat();
                 Serial.print("target(m) = ");
@@ -40,5 +42,7 @@ void loop()
     }
     moveToPosition(target);
     // positionCorrection();
+    Serial.println(getGoal());
+    Serial1.println(getGoal());
 }
 

@@ -17,7 +17,8 @@
 
 #define SPEED 1 // [m / s]
 
-#define STEP_ON_LOOP 1
+#define STEP_ON_LOOP 0
+#define ALWAYS_ENABLE 1
 
 void setMicrosteps(unsigned short int);
 void initStepper();
@@ -29,6 +30,8 @@ void executeSteps(unsigned int);
 short int checkLimit();
 bool getEnable();
 void setEnable(bool);
+bool getGoal();
+void setGoal(bool);
 void positionCorrection();
 void moveToPosition(float);
 
