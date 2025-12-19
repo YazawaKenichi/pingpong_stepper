@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <math.h>
+#include "serial.h"
 #include "stepper.h"
 #include "led.h"
 
@@ -17,22 +18,27 @@ void setMicrosteps(unsigned short int ms_)
             digitalWrite(MS1_PIN, HIGH);
             digitalWrite(MS2_PIN, LOW);
             digitalWrite(MS3_PIN, LOW);
+            break;
         case 4:
             digitalWrite(MS1_PIN, LOW);
             digitalWrite(MS2_PIN, HIGH);
             digitalWrite(MS3_PIN, LOW);
+            break;
         case 8:
             digitalWrite(MS1_PIN, HIGH);
             digitalWrite(MS2_PIN, HIGH);
             digitalWrite(MS3_PIN, LOW);
+            break;
         case 16:
             digitalWrite(MS1_PIN, HIGH);
             digitalWrite(MS2_PIN, HIGH);
             digitalWrite(MS3_PIN, HIGH);
+            break;
         default:
             digitalWrite(MS1_PIN, LOW);
             digitalWrite(MS2_PIN, LOW);
             digitalWrite(MS3_PIN, LOW);
+            break;
     }
 }
 
@@ -82,13 +88,14 @@ void oneStep()
     delayMicroseconds(dt_);
 }
 
-void setDir(int dir)
+void writeDir(int dir)
 {
     digitalWrite(DIR_PIN, dir);
 }
 
 void executeSteps(unsigned int steps)
 {
+    writeDir(getDir());
     for (unsigned int x = 0; x < steps; x++)
     {
         oneStep();
@@ -126,12 +133,8 @@ bool getEnable()
 void setEnable(bool tf)
 {
     enable_ = tf;
-#if ALWAYS_ENABLE
-    digitalWrite(ENABLE_PIN, LOW);
-#else
     digitalWrite(ENABLE_PIN, tf ? LOW : HIGH);
     delayMicroseconds(1);
-#endif
 }
 
 void goalFeedback()
@@ -150,26 +153,70 @@ void setGoal(bool tf)
     setLed(tf);
 }
 
+float diff_;
+int dir_;
+unsigned long int step_;
+
+void updateDir(float d_)
+{
+    dir_ = (d_ >= 0) ? DIR_RIGHT : DIR_LEFT;
+}
+
+int getDir()
+{
+    return dir_;
+}
+
+void updateStep(float d_)
+{
+#if STEP_ON_LOOP
+    step_ = 1;
+#else
+    step_ = lround(fabs(M2STEP(d_)));
+#endif
+}
+
+unsigned long int getStep()
+{
+    return step_;
+}
+
+void updateDiff()
+{
+    diff_ = getTarget() - getPos();
+}
+
+float getDiff()
+{
+    return diff_;
+}
+
+void updateDDS()
+{
+    updateDiff();
+    updateDir(getDiff());
+    updateStep(getDiff());
+}
+
 void moveToPosition(float target)
 {
     if (target < 0.0f) target = 0.0f;
     if (target > LENGTH) target = LENGTH;
 
-    float diff = target - getPos();
-    if(fabs(diff) > STEP2M(1))
+    updateDDS();
+
+    // if(fabs(diff) > STEP2M(1))
+    if(fabs(getDiff()) > 0.001f)
     {
         setEnable(true);
-        int dir = (diff >= 0) ? DIR_RIGHT : DIR_LEFT;
-        unsigned long int step;
-#if STEP_ON_LOOP
-        step = 1;
-#else
-        step = lround(fabs(M2STEP(diff)));
-#endif
-        setDir(dir);
-        executeSteps(step);
-        int unit = (diff >= 0) ? 1 : -1;
-        setPos(getPos() + (unit * STEP2M(step)));
+        setGoal(true);
+
+        unsigned long int s = getStep();
+        int unit = (getDiff() >= 0) ? 1 : -1;
+        setPos(getPos() + (unit * STEP2M(s)));
+
+        executeSteps(s);
+
         setGoal(false);
     }
     else
