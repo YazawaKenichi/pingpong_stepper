@@ -42,7 +42,6 @@ void loop()
     }
     moveToPosition(target);
     // positionCorrection();
-    Serial.println(getGoal());
-    Serial1.println(getGoal());
+    goalFeedback();
 }
 

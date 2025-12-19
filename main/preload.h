@@ -8,6 +8,7 @@
 #define MS1_PIN 10
 #define MS2_PIN 11
 #define MS3_PIN 12
+#define TRIGGER_PIN 23
 
 #define LEFT_LIMIT_PIN 2
 #define RIGHT_LIMIT_PIN 3

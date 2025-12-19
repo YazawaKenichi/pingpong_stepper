@@ -38,6 +38,9 @@ void setMicrosteps(unsigned short int ms_)
 
 void initStepper()
 {
+    pinMode(TRIGGER_PIN, OUTPUT);
+    digitalWrite(TRIGGER_PIN, HIGH);
+
     pinMode(DIR_PIN, OUTPUT);
     pinMode(STEP_PIN, OUTPUT);
 
@@ -126,8 +129,14 @@ void setEnable(bool tf)
 #if ALWAYS_ENABLE
     digitalWrite(ENABLE_PIN, LOW);
 #else
-    digitalWrite(ENABLE_PIN, tf ? HIGH : LOW);
+    digitalWrite(ENABLE_PIN, tf ? LOW : HIGH);
+    delayMicroseconds(1);
 #endif
+}
+
+void goalFeedback()
+{
+    digitalWrite(TRIGGER_PIN, getGoal() ? HIGH : LOW);
 }
 
 bool getGoal()
@@ -147,14 +156,15 @@ void moveToPosition(float target)
     if (target > LENGTH) target = LENGTH;
 
     float diff = target - getPos();
-    if(fabs(diff) < STEP2M(1))
+    if(fabs(diff) > STEP2M(1))
     {
         setEnable(true);
         int dir = (diff >= 0) ? DIR_RIGHT : DIR_LEFT;
+        unsigned long int step;
 #if STEP_ON_LOOP
         step = 1;
 #else
-        unsigned long int step = lround(fabs(M2STEP(diff)));
+        step = lround(fabs(M2STEP(diff)));
 #endif
         setDir(dir);
         executeSteps(step);
