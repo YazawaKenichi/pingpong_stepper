@@ -17,8 +17,7 @@ void setup()
 void loop()
 {
     updateTarget();
-    moveToPosition(getTarget());
+    moveToPosition();
     // positionCorrection();
-    goalFeedback();
 }
 

@@ -150,6 +150,7 @@ bool getGoal()
 void setGoal(bool tf)
 {
     goal_ = tf;
+    goalFeedback();
     setLed(tf);
 }
 
@@ -198,31 +199,37 @@ void updateDDS()
     updateStep(getDiff());
 }
 
-void moveToPosition(float target)
+void moveToPosition()
 {
-    if (target < 0.0f) target = 0.0f;
-    if (target > LENGTH) target = LENGTH;
+    Serial.println("[START] moveToPosition()");
+    // if (target < 0.0f) target = 0.0f;
+    // if (target > LENGTH) target = LENGTH;
 
+    Serial.println("updateDDS();");
     updateDDS();
 
     // if(fabs(diff) > STEP2M(1))
     if(fabs(getDiff()) > 0.001f)
     {
+        Serial.println("setEnable(true);");
         setEnable(true);
-        setGoal(true);
 
         unsigned long int s = getStep();
         int unit = (getDiff() >= 0) ? 1 : -1;
         setPos(getPos() + (unit * STEP2M(s)));
 
-        executeSteps(s);
-
+        Serial.println("setGoal(false);");
         setGoal(false);
+        Serial.println("executeSteps(s);");
+        executeSteps(s);
     }
     else
     {
+        Serial.println("setEnable(false);");
         setEnable(false);
+        Serial.println("setGoal(true);");
         setGoal(true);
     }
+    Serial.println("[END] moveToPosition()");
 }
 

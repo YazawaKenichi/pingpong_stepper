@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include "preload.h"
 #include "led.h"
 
 bool led_state_ = false;
@@ -8,7 +9,7 @@ void initLed()
 {
     if(initialized_)
     {
-        pinMode(LED_BUILTIN, OUTPUT);
+        pinMode(LED_PIN, OUTPUT);
         setLed(false);
         initialized_ = true;
     }
@@ -17,7 +18,7 @@ void initLed()
 void setLed(bool tf)
 {
     led_state_ = tf;
-    digitalWrite(LED_BUILTIN, tf ? HIGH : LOW);
+    digitalWrite(LED_PIN, tf ? HIGH : LOW);
 }
 
 bool getLed()

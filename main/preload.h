@@ -9,6 +9,7 @@
 #define MS2_PIN 11
 #define MS3_PIN 12
 #define TRIGGER_PIN 23
+#define LED_PIN 22
 
 #define LEFT_LIMIT_PIN 2
 #define RIGHT_LIMIT_PIN 3

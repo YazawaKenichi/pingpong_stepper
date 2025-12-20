@@ -32,7 +32,7 @@ void setEnable(bool);
 bool getGoal();
 void setGoal(bool);
 void positionCorrection();
-void moveToPosition(float);
+void moveToPosition();
 void goalFeedback();
 void updateDir();
 void updateStep();
