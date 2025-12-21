@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include "stepper.h"
 
 float target_;   //! [ m ]
 String rxLine_;
@@ -38,10 +39,12 @@ void updateTarget()
         {
             if(rxLine_.length() > 0)
             {
+                setGoal(false);
                 target_ = rxLine_.toFloat();
                 Serial.print("target(m) = ");
                 Serial.println(target_, 4);
                 rxLine_ = "";
+                setEnable(true);
             }
         }
         else
